@@ -1,0 +1,218 @@
+import turtle
+import random
+import time
+
+# Screen setup
+screen = turtle.Screen()
+screen.title("Advanced Space Shooter")
+screen.bgcolor("black")
+screen.setup(width=800, height=600)
+screen.tracer(0)
+
+# Global Variables
+player_speed = 15
+bullet_speed = 20
+enemy_speed = 2
+num_enemies = 3
+score = 0
+lives = 3
+kills = 0  # Track the number of enemies killed
+ammo = 10  # Ammo count (player starts with 10 bullets)
+ammo_capacity = 10  # Current maximum ammo capacity (adjusts at milestones)
+can_shoot = True  # Controls firing ability
+machine_gun = False  # Machine gun power-up
+boss_active = False  # Is the boss active?
+boss_hits = 0  # Hits needed to kill the boss
+score_threshold = 100  # Initial milestone for ammo, speed, and lives upgrade
+
+# Player spaceship
+player = turtle.Turtle()
+player.shape("triangle")
+player.color("white")
+player.penup()
+player.goto(0, -250)
+player.setheading(90)  # Point upwards
+
+# Bullet setup
+bullets = []
+bullet_state = "ready"
+
+# Enemy setup
+enemies = []
+
+def create_enemies(n):
+    for _ in range(n):
+        enemy = turtle.Turtle()
+        enemy.shape(random.choice(["circle", "square", "triangle"]))  # Enemy variations
+        enemy.color(random.choice(["red", "yellow", "purple"]))
+        enemy.penup()
+        enemy.speed(0)
+        enemy.goto(random.randint(-380, 380), random.randint(100, 300))
+        enemies.append(enemy)
+
+create_enemies(num_enemies)
+
+# Boss setup
+boss = turtle.Turtle()
+boss.shape("square")
+boss.color("dark blue")
+boss.penup()
+boss.speed(0)
+boss.shapesize(stretch_wid=3, stretch_len=5)  # Boss is now bigger
+boss.hideturtle()  # Hide boss initially
+
+# Score display
+score_display = turtle.Turtle()
+score_display.color("white")
+score_display.penup()
+score_display.hideturtle()
+score_display.goto(0, 260)
+score_display.write("Score: 0  Lives: 3  Ammo: 10", align="center", font=("Courier", 18, "normal"))
+
+# Game over text
+game_over_text = turtle.Turtle()
+game_over_text.color("red")
+game_over_text.penup()
+game_over_text.hideturtle()
+
+# Functions to control the player
+def move_left():
+    x = player.xcor()
+    x -= player_speed
+    if x < -380:  # Prevent moving out of bounds
+        x = -380
+    player.setx(x)
+
+def move_right():
+    x = player.xcor()
+    x += player_speed
+    if x > 380:  # Prevent moving out of bounds
+        x = 380
+    player.setx(x)
+
+# Fire bullet
+def fire_bullet():
+    global ammo, can_shoot
+    if can_shoot and ammo > 0:
+        bullet = turtle.Turtle()
+        bullet.shape("square")
+        bullet.color("red")
+        bullet.penup()
+        bullet.speed(0)
+        bullet.shapesize(stretch_wid=0.2, stretch_len=0.8)
+        bullet.goto(player.xcor(), player.ycor() + 10)
+        bullet.setheading(90)
+        bullets.append(bullet)
+        ammo -= 1
+        if ammo == 0:  # Prevent shooting when ammo runs out
+            can_shoot = False
+        update_score_and_lives()
+
+# Reload function
+def reload_ammo():
+    global ammo, can_shoot
+    ammo = ammo_capacity  # Use the current ammo capacity when reloading
+    can_shoot = True
+    update_score_and_lives()
+
+# Check for collision between two turtles
+def is_collision(t1, t2):
+    return t1.distance(t2) < 20
+
+# Update the score and lives display
+def update_score_and_lives():
+    global ammo_capacity, bullet_speed, lives, score_threshold
+    # Check if the player has reached the score threshold
+    if score >= score_threshold:
+        # Permanently increase ammo, bullet speed, and lives
+        ammo_capacity += 5  # Additional ammo capacity
+        bullet_speed += 2   # Increase bullet speed
+        lives += 1          # Gain an extra life
+        score_threshold += 100  # Set the next milestone
+        
+        # Display a message for reaching a milestone
+        score_display.clear()
+        score_display.color("green")
+        score_display.write("UPGRADE! +5 Ammo, +2 Speed, +1 Life!", align="center", font=("Courier", 18, "normal"))
+        time.sleep(1)  # Pause briefly for user feedback
+        score_display.color("white")
+
+    # Update the standard score, lives, and ammo display
+    score_display.clear()
+    score_display.write(f"Score: {score}  Lives: {lives}  Ammo: {ammo}", align="center", font=("Courier", 18, "normal"))
+
+# Spawn the boss
+def spawn_boss():
+    global boss_active
+    boss_active = True
+    boss.goto(0, 250)  # Boss appears at the top of the screen
+    boss.showturtle()
+
+# Keyboard bindings
+screen.listen()
+screen.onkeypress(move_left, "Left")
+screen.onkeypress(move_right, "Right")
+screen.onkeypress(fire_bullet, "space")
+screen.onkeypress(reload_ammo, "r")  # "R" reloads the ammo
+
+# Main game loop
+running = True
+
+while running:
+    time.sleep(0.02)  # Game speed
+    screen.update()
+
+    # Move bullets
+    for bullet in bullets[:]:
+        bullet.sety(bullet.ycor() + bullet_speed)
+        # Remove bullets that go off-screen
+        if bullet.ycor() > 290:
+            bullets.remove(bullet)
+            bullet.hideturtle()
+
+    # Move enemies
+    for enemy in enemies:
+        enemy.setx(enemy.xcor() + random.choice([-1, 1]) * enemy_speed)
+        enemy.sety(enemy.ycor() - enemy_speed / 2)
+
+        # Reset enemy if it goes off-screen vertically
+        if enemy.ycor() < -300:
+            enemy.goto(random.randint(-380, 380), random.randint(100, 300))
+
+        # Check for collision with player
+        if is_collision(player, enemy):
+            lives -= 1
+            update_score_and_lives()
+            enemy.goto(random.randint(-380, 380), random.randint(100, 300))
+            if lives == 0:
+                game_over_text.goto(0, 0)
+                game_over_text.write("GAME OVER", align="center", font=("Courier", 36, "normal"))
+                running = False
+
+        # Check for collision with bullets
+        for bullet in bullets[:]:
+            if is_collision(bullet, enemy):
+                score += 10
+                kills += 1
+                update_score_and_lives()
+                bullets.remove(bullet)
+                bullet.hideturtle()
+                enemy.goto(random.randint(-380, 380), random.randint(100, 300))
+
+    # Move boss (if active)
+    if boss_active:
+        boss.setx(boss.xcor() + random.choice([-1, 1]) * enemy_speed)
+
+        # Check for collision with boss
+        for bullet in bullets[:]:
+            if is_collision(bullet, boss):
+                bullets.remove(bullet)
+                bullet.hideturtle()
+                boss_hits += 1
+                if boss_hits >= 5:  # Boss dies after 5 hits
+                    score += 50
+                    update_score_and_lives()
+                    boss.hideturtle()
+                    boss_active = False
+
+screen.mainloop()
